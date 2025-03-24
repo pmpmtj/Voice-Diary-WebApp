@@ -1,0 +1,132 @@
+{% extends 'scheduler_control/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Scheduler Control</h3>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="mb-0">Current Status: <span id="status-text">{% if status.is_running %}Running{% else %}Stopped{% endif %}</span></h5>
+                        <p class="text-muted mb-0" id="last-action">
+                            {% if status.is_running %}
+                                Started: {{ status.last_started|date:"Y-m-d H:i:s" }}
+                            {% else %}
+                                Stopped: {{ status.last_stopped|date:"Y-m-d H:i:s" }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <form method="post" action="{% url 'toggle_scheduler' %}" id="toggle-form">
+                        {% csrf_token %}
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="scheduler-toggle" {% if status.is_running %}checked{% endif %}>
+                            <span class="slider"></span>
+                        </label>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Recent Activity</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+                                <td>{{ log.user.username }}</td>
+                                <td>{{ log.action|title }}</td>
+                                <td>
+                                    {% if log.success %}
+                                        <span class="badge bg-success">Success</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Failed</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('scheduler-toggle');
+    const form = document.getElementById('toggle-form');
+    const statusText = document.getElementById('status-text');
+    const lastAction = document.getElementById('last-action');
+
+    // Update status periodically
+    function updateStatus() {
+        fetch('{% url "get_status" %}')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                statusText.textContent = data.is_running ? 'Running' : 'Stopped';
+                toggle.checked = data.is_running;
+                if (data.is_running && data.last_started) {
+                    lastAction.textContent = `Started: ${new Date(data.last_started).toLocaleString()}`;
+                } else if (!data.is_running && data.last_stopped) {
+                    lastAction.textContent = `Stopped: ${new Date(data.last_stopped).toLocaleString()}`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching status:', error);
+            });
+    }
+
+    // Initial status update
+    updateStatus();
+
+    // Update status every 5 seconds
+    const statusInterval = setInterval(updateStatus, 5000);
+
+    // Handle toggle with debounce
+    let isSubmitting = false;
+    toggle.addEventListener('change', function(e) {
+        if (isSubmitting) {
+            e.preventDefault();
+            return;
+        }
+        
+        isSubmitting = true;
+        toggle.disabled = true;
+        
+        form.submit();
+        
+        // Re-enable after 2 seconds to prevent double submission
+        setTimeout(() => {
+            isSubmitting = false;
+            toggle.disabled = false;
+        }, 2000);
+    });
+});
+</script>
+{% endblock %} 
