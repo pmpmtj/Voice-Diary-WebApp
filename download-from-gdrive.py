@@ -13,7 +13,7 @@ import time
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # If modifying these scopes, delete the token.pickle file
-SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+SCOPES = ['https://www.googleapis.com/auth/drive']
 CREDENTIALS_FILE = 'credentials.json'
 FOLDER_NAME = 'a-daily-log'  # Your Google Drive folder name
 

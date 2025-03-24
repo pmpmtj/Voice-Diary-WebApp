@@ -207,6 +207,14 @@ def process_transcription(
     todo_items = extract_todo_items(analysis)
     organized_entry = extract_organized_entry(analysis)
     
+    # Send demo email if enabled
+    from send_email import send_demo_email
+    success, message = send_demo_email(transcription)
+    if success:
+        print(f"Demo email sent: {message}")
+    else:
+        print(f"Demo email failed: {message}")
+
     return {
         'analysis': analysis,
         'todo_items': todo_items,

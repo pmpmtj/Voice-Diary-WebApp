@@ -63,7 +63,7 @@ $RECYCLE.BIN/
 *.log.*.*.*.*
 
 credentials.json
-token.pickle
+*token*.*
 
 ffmpeg.exe
 build*.*
