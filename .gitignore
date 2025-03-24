@@ -71,5 +71,6 @@ arquive_folder/
 processed_audio/
 a-Base/
 received_transcriptions/
+db.sqlite3
 
 
