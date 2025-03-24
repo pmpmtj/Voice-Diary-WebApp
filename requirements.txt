@@ -1,0 +1,12 @@
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.117.0 
+openai-whisper  # For local whisper transcription
+ffmpeg-python   # For audio processing
+openai>=1.10.0  # Updated OpenAI API package with audio transcription support
+tiktoken>=0.5.0 # For token counting
+pytest>=7.4.0   # For testing (optional)
+#transformers    # Uncomment if needed for additional local model support
+#accelerate      # Uncomment if needed for GPU acceleration
+#bitsandbytes    # Uncomment if needed for GPU optimization
+#pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124

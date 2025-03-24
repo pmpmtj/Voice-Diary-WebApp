@@ -1,0 +1,75 @@
+# Python-related files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+.venv/
+
+# Model files - these are large binary files
+*.pt
+script/model/*.pt
+
+# Generated output files
+*.txt
+*.vtt
+*.srt
+*.json
+*.tsv
+
+# Except README and other documentation
+!README.md
+!INSTALL.md
+!requirements.txt
+!config.json
+
+# Editor-specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Windows-specific files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/ 
+
+# log files
+*.log
+*.log.*
+*.log.*.*
+*.log.*.*.*
+*.log.*.*.*.*
+
+credentials.json
+token.pickle
+
+ffmpeg.exe
+build*.*
+arquive_folder/
+processed_audio/
+a-Base/
+received_transcriptions/
+
+
