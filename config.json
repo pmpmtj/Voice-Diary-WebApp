@@ -53,7 +53,7 @@
     "auto_update_date": true
   },
   "scheduler": {
-    "runs_per_day": 1440,
+    "runs_per_day": 0,
     "log_file": "pipeline_scheduler.log",
     "log_level": "INFO",
     "scripts": {
