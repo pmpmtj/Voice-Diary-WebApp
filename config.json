@@ -62,6 +62,11 @@
       "process": "process_transcription.py"
     }
   },
+  "web_interface": {
+    "process_startup_delay": 10,
+    "status_check_grace_period": 2,
+    "process_termination_timeout": 10
+  },
   "verbose": true,
   "device": "cuda"
 }
