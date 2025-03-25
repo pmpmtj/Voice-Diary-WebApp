@@ -13,4 +13,7 @@ urlpatterns = [
     path('execute-command/', views.execute_management_command, name='execute_management_command'),
     path('login/', auth_views.LoginView.as_view(template_name='scheduler_control/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    # Recording functionality URLs
+    path('record/', views.record, name='record'),
+    path('process-audio/', views.process_audio, name='process_audio'),
 ] 

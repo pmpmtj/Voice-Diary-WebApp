@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 from django.utils import timezone
 import subprocess
 import os
@@ -412,4 +412,55 @@ def execute_management_command(request):
         return JsonResponse({
             'success': False,
             'error': str(e)
-        }) 
+        })
+
+@login_required
+@demo_user_required
+def record(request):
+    """View for the audio recording page."""
+    return render(request, 'scheduler_control/record.html')
+
+@login_required
+@demo_user_required
+@csrf_protect
+@require_http_methods(["POST"])
+def process_audio(request):
+    """Handle the uploaded audio file and process it."""
+    try:
+        if 'audio' not in request.FILES:
+            return JsonResponse({'error': 'No audio file provided'}, status=400)
+        
+        audio_file = request.FILES['audio']
+        
+        # Create a directory for storing uploads if it doesn't exist
+        upload_dir = os.path.join(settings.MEDIA_ROOT, 'audio_uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save the file as incoming_recording.wav
+        file_path = os.path.join(upload_dir, 'incoming_recording.wav')
+        with open(file_path, 'wb+') as destination:
+            for chunk in audio_file.chunks():
+                destination.write(chunk)
+        
+        # Log the successful upload
+        SchedulerLog.objects.create(
+            user=request.user,
+            action='audio_upload',
+            success=True,
+            error_message=f"Audio file uploaded to {file_path}"  # Using error_message field for details
+        )
+        
+        return JsonResponse({
+            'message': 'Audio file received and processed successfully',
+            'file_path': file_path
+        })
+        
+    except Exception as e:
+        # Log the error
+        SchedulerLog.objects.create(
+            user=request.user,
+            action='audio_upload',
+            success=False,
+            error_message=str(e)
+        )
+        return JsonResponse({'error': str(e)}, status=500) 
