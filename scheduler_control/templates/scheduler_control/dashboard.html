@@ -3,7 +3,7 @@
 {% block content %}
 <div class="row">
     <div class="col-md-6">
-        <div class="card">
+        <div class="card mb-4">
             <div class="card-header">
                 <h3>Scheduler Control</h3>
             </div>
@@ -27,6 +27,77 @@
                         </label>
                     </form>
                 </div>
+            </div>
+        </div>
+
+        <!-- New card for Runs Per Day configuration -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Schedule Configuration</h3>
+            </div>
+            <div class="card-body">
+                <form id="runs-per-day-form" class="mb-3">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="runs-per-day">Runs Per Day</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="runs-per-day" name="runs_per_day" 
+                                   min="0" step="1" required
+                                   value="{{ config.scheduler.runs_per_day|default:1 }}">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" type="submit">Update</button>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">
+                            Set to 0 to run once and exit, 1 for daily, 2 for twice a day, 24 for hourly, etc.
+                        </small>
+                        <p class="mt-2 mb-0">
+                            <strong>Current interval:</strong> 
+                            <span id="current-interval">Every {{ config.scheduler.interval|default:"24 hours" }}</span>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- New card for Email Configuration -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3>Email Configuration</h3>
+            </div>
+            <div class="card-body">
+                <form id="email-config-form">
+                    {% csrf_token %}
+                    <div class="form-group mb-3">
+                        <div class="custom-control custom-switch">
+                            <input type="checkbox" class="custom-control-input" id="send-demo-email" 
+                                   {% if email_config.send_demo_email %}checked{% endif %}>
+                            <label class="custom-control-label" for="send-demo-email">Send Demo Email</label>
+                        </div>
+                    </div>
+
+                    <div id="email-fields" {% if not email_config.send_demo_email %}style="display: none;"{% endif %}>
+                        <div class="form-group mb-3">
+                            <label for="email-to">Recipient Email</label>
+                            <input type="email" class="form-control" id="email-to" name="to" 
+                                   value="{{ email_config.email.to }}" required>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="email-subject">Subject</label>
+                            <input type="text" class="form-control" id="email-subject" name="subject" 
+                                   value="{{ email_config.email.subject }}" required>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="email-message">Message</label>
+                            <textarea class="form-control" id="email-message" name="message" 
+                                      rows="3" required>{{ email_config.email.message }}</textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save Email Configuration</button>
+                </form>
             </div>
         </div>
     </div>
@@ -78,6 +149,44 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('toggle-form');
     const statusText = document.getElementById('status-text');
     const lastAction = document.getElementById('last-action');
+    const runsPerDayForm = document.getElementById('runs-per-day-form');
+    const currentInterval = document.getElementById('current-interval');
+
+    // Handle runs per day form submission
+    runsPerDayForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const runsPerDay = document.getElementById('runs-per-day').value;
+        
+        fetch('{% url "update_runs_per_day" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                runs_per_day: parseInt(runsPerDay)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the interval display
+                currentInterval.textContent = data.interval;
+                // Show success message
+                alert('Schedule configuration updated successfully!');
+                // If scheduler is running, show restart message
+                if (toggle.checked) {
+                    alert('Please restart the scheduler for changes to take effect.');
+                }
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating the configuration.');
+        });
+    });
 
     // Update status periodically
     function updateStatus() {
@@ -126,6 +235,57 @@ document.addEventListener('DOMContentLoaded', function() {
             isSubmitting = false;
             toggle.disabled = false;
         }, 2000);
+    });
+
+    // Email Configuration Form Handling
+    const emailConfigForm = document.getElementById('email-config-form');
+    const sendDemoEmailCheckbox = document.getElementById('send-demo-email');
+    const emailFields = document.getElementById('email-fields');
+
+    // Toggle email fields visibility based on checkbox
+    sendDemoEmailCheckbox.addEventListener('change', function() {
+        emailFields.style.display = this.checked ? 'block' : 'none';
+        
+        // If hiding fields, remove required attribute
+        const requiredFields = emailFields.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            field.required = this.checked;
+        });
+    });
+
+    // Handle email config form submission
+    emailConfigForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const config = {
+            send_demo_email: sendDemoEmailCheckbox.checked,
+            email: {
+                to: document.getElementById('email-to').value,
+                subject: document.getElementById('email-subject').value,
+                message: document.getElementById('email-message').value
+            }
+        };
+
+        fetch('{% url "update_email_config" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(config)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Email configuration updated successfully!');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating the email configuration.');
+        });
     });
 });
 </script>

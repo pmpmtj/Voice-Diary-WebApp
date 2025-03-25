@@ -13,6 +13,7 @@ import time
 import json
 from .models import SchedulerStatus, SchedulerLog
 from django.conf import settings
+from django.views.decorators.csrf import csrf_protect
 
 # Global variable to store the scheduler process
 scheduler_process = None
@@ -27,6 +28,17 @@ def load_config():
     except Exception as e:
         print(f"Error loading config.json: {str(e)}")
         return {}
+
+def load_email_config():
+    """Load configuration from email_config.json file"""
+    config_path = os.path.join(settings.BASE_DIR, 'email_config.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return config
+    except Exception as e:
+        print(f"Error loading email_config.json: {str(e)}")
+        return {'email': {'to': '', 'subject': '', 'message': ''}, 'send_demo_email': False}
 
 # Load config at module level
 config = load_config()
@@ -49,9 +61,16 @@ def dashboard(request):
     """Main dashboard view"""
     status, created = SchedulerStatus.objects.get_or_create()
     logs = SchedulerLog.objects.all().order_by('-timestamp')[:10]  # Get last 10 logs
+    
+    # Load configurations
+    config = load_config()
+    email_config = load_email_config()
+    
     return render(request, 'scheduler_control/dashboard.html', {
         'status': status,
-        'logs': logs
+        'logs': logs,
+        'config': config,
+        'email_config': email_config
     })
 
 @login_required
@@ -170,4 +189,129 @@ def get_status(request):
         'is_running': status.is_running,
         'last_started': status.last_started.isoformat() if status.last_started else None,
         'last_stopped': status.last_stopped.isoformat() if status.last_stopped else None
-    }) 
+    })
+
+@login_required
+@csrf_protect
+@require_POST
+def update_runs_per_day(request):
+    """Update the runs per day configuration in config.json"""
+    try:
+        data = json.loads(request.body)
+        runs_per_day = data.get('runs_per_day')
+        
+        if runs_per_day is None:
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing runs_per_day parameter'
+            })
+            
+        if not isinstance(runs_per_day, int) or runs_per_day < 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid runs_per_day value. Must be a non-negative integer.'
+            })
+            
+        # Get the path to setup_num_runs.py
+        setup_script = os.path.join(settings.BASE_DIR, 'setup_num_runs.py')
+        python_exe = sys.executable
+        
+        # Run the setup script
+        result = subprocess.run(
+            [python_exe, setup_script, str(runs_per_day)],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            return JsonResponse({
+                'success': False,
+                'error': f'Failed to update configuration: {result.stderr}'
+            })
+            
+        # Calculate the interval text
+        if runs_per_day == 0:
+            interval = "Run once and exit"
+        else:
+            seconds_per_day = 86400
+            interval_seconds = seconds_per_day / runs_per_day
+            
+            days, remainder = divmod(interval_seconds, 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            parts = []
+            if days > 0:
+                parts.append(f"{int(days)} day{'s' if days > 1 else ''}")
+            if hours > 0:
+                parts.append(f"{int(hours)} hour{'s' if hours > 1 else ''}")
+            if minutes > 0:
+                parts.append(f"{int(minutes)} minute{'s' if minutes > 1 else ''}")
+            if seconds > 0 and not parts:
+                parts.append(f"{int(seconds)} second{'s' if seconds > 1 else ''}")
+                
+            interval = "Every " + " and ".join(parts)
+        
+        return JsonResponse({
+            'success': True,
+            'interval': interval
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+@csrf_protect
+@require_POST
+def update_email_config(request):
+    """Update the email configuration in email_config.json"""
+    try:
+        data = json.loads(request.body)
+        
+        # Validate email configuration
+        email_config = data.get('email', {})
+        send_demo_email = data.get('send_demo_email', False)
+        
+        if send_demo_email:
+            # Validate required fields when send_demo_email is True
+            if not email_config.get('to'):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Recipient email is required when send demo email is enabled'
+                })
+            
+            if not email_config.get('subject'):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Subject is required when send demo email is enabled'
+                })
+            
+            if not email_config.get('message'):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Message is required when send demo email is enabled'
+                })
+        
+        # Prepare the configuration
+        config = {
+            'email': email_config,
+            'send_demo_email': send_demo_email
+        }
+        
+        # Save to email_config.json
+        config_path = os.path.join(settings.BASE_DIR, 'email_config.json')
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4)
+        
+        return JsonResponse({
+            'success': True
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }) 

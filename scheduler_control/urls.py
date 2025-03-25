@@ -6,6 +6,8 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('toggle/', views.toggle_scheduler, name='toggle_scheduler'),
     path('status/', views.get_status, name='get_status'),
+    path('update-runs-per-day/', views.update_runs_per_day, name='update_runs_per_day'),
+    path('update-email-config/', views.update_email_config, name='update_email_config'),
     path('login/', auth_views.LoginView.as_view(template_name='scheduler_control/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 ] 

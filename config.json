@@ -47,13 +47,13 @@
     }
   },
   "diary_manager": {
-    "current_date": "250324",
+    "current_date": "250325",
     "entries_file_format": "{date}_ongoing_entries.txt",
     "legacy_file": "ongoing_entries.txt",
     "auto_update_date": true
   },
   "scheduler": {
-    "runs_per_day": 0,
+    "runs_per_day": 10,
     "log_file": "pipeline_scheduler.log",
     "log_level": "INFO",
     "scripts": {
@@ -64,7 +64,7 @@
   },
   "web_interface": {
     "process_startup_delay": 10,
-    "status_check_grace_period": 2,
+    "status_check_grace_period": 5,
     "process_termination_timeout": 10
   },
   "verbose": true,
