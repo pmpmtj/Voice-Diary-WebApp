@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_http_methods
 from django.utils import timezone
+from django.contrib.auth import views as auth_views
 import subprocess
 import os
 import signal
@@ -17,6 +18,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.core.management import call_command
 from io import StringIO
 from functools import wraps
+import logging
 
 def demo_user_required(view_func):
     """Decorator to handle demo user access"""
@@ -27,7 +29,8 @@ def demo_user_required(view_func):
             
         if request.user.username == 'visita':
             # If demo user tries to access non-demo pages, redirect to demo
-            if view_func.__name__ != 'demo_view':
+            # Except for email_config and process_audio views
+            if view_func.__name__ not in ['demo_view', 'email_config', 'process_audio']:
                 return redirect('demo')
         else:
             # If regular user tries to access demo page, redirect to dashboard
@@ -442,6 +445,14 @@ def process_audio(request):
             for chunk in audio_file.chunks():
                 destination.write(chunk)
         
+        # Execute sending_demo_email.py after saving the file
+        try:
+            subprocess.run([sys.executable, 'sending_demo_email.py'], check=True)
+            logging.info("Successfully executed sending_demo_email.py")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Error executing sending_demo_email.py: {str(e)}")
+            # Continue with the response even if email script fails
+        
         # Log the successful upload
         SchedulerLog.objects.create(
             user=request.user,
@@ -463,4 +474,10 @@ def process_audio(request):
             success=False,
             error_message=str(e)
         )
-        return JsonResponse({'error': str(e)}, status=500) 
+        return JsonResponse({'error': str(e)}, status=500)
+
+class CustomLoginView(auth_views.LoginView):
+    def get_success_url(self):
+        if self.request.user.username == 'visita':
+            return '/email-config/'
+        return super().get_success_url() 

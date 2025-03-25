@@ -11,7 +11,7 @@ urlpatterns = [
     path('update-email-config/', views.update_email_config, name='update_email_config'),
     path('email-config/', views.email_config, name='email_config'),
     path('execute-command/', views.execute_management_command, name='execute_management_command'),
-    path('login/', auth_views.LoginView.as_view(template_name='scheduler_control/login.html'), name='login'),
+    path('login/', views.CustomLoginView.as_view(template_name='scheduler_control/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     # Recording functionality URLs
     path('record/', views.record, name='record'),

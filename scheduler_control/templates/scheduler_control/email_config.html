@@ -212,18 +212,26 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data.success) {
+            if (data.message) {
                 alert('Recording sent successfully!');
                 audioPreview.style.display = 'none';
-            } else {
+            } else if (data.error) {
                 alert('Error: ' + data.error);
+            } else {
+                alert('Recording sent successfully!');
+                audioPreview.style.display = 'none';
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while sending the recording.');
+            console.error('Error details:', error);
+            alert('An error occurred while sending the recording. Please check the console for details.');
         });
     }
 
