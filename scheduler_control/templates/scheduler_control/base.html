@@ -53,25 +53,38 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'dashboard' %}">Transcription Control</a>
+            <a class="navbar-brand" href="{% if user.username == 'visita' %}{% url 'email_config' %}{% else %}{% url 'dashboard' %}{% endif %}">
+                Transcription Scheduler
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    {% if user.is_authenticated %}
+                <ul class="navbar-nav me-auto">
+                    {% if user.is_authenticated and user.username != 'visita' %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'record' %}">
-                                <i class="fas fa-microphone"></i> Record Audio
-                            </a>
+                            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a>
                         </li>
-                        {% if user.username != 'visita' %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'email_config' %}active{% endif %}" href="{% url 'email_config' %}">Email Settings</a>
+                        </li>
+                        {% if user.is_superuser %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'email_config' %}">Email Settings</a>
+                                <a class="nav-link {% if request.resolver_match.url_name == 'execute_management_command' %}active{% endif %}" href="{% url 'execute_management_command' %}">Admin Commands</a>
                             </li>
                         {% endif %}
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <span class="nav-link">Welcome, {{ user.username }}</span>
+                            <span class="nav-link">
+                                {% if user.username == 'visita' %}
+                                    <i class="fas fa-user-shield"></i> Demo User
+                                {% else %}
+                                    <i class="fas fa-user"></i> {{ user.username }}
+                                {% endif %}
+                            </span>
                         </li>
                         <li class="nav-item">
                             <form method="post" action="{% url 'logout' %}" class="d-inline">
@@ -92,12 +105,13 @@
     <div class="container mt-4">
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
                     {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endfor %}
         {% endif %}
-
+        
         {% block content %}
         {% endblock %}
     </div>

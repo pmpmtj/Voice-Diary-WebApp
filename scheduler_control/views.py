@@ -19,6 +19,7 @@ from django.core.management import call_command
 from io import StringIO
 from functools import wraps
 import logging
+from django.urls import reverse
 
 def demo_user_required(view_func):
     """Decorator to handle demo user access"""
@@ -28,35 +29,14 @@ def demo_user_required(view_func):
             return redirect('login')
             
         if request.user.username == 'visita':
-            # If demo user tries to access non-demo pages, redirect to demo
-            # Except for email_config and process_audio views
-            if view_func.__name__ not in ['demo_view', 'email_config', 'process_audio']:
-                return redirect('demo')
-        else:
-            # If regular user tries to access demo page, redirect to dashboard
-            if view_func.__name__ == 'demo_view':
-                return redirect('dashboard')
+            # List of allowed views for demo user
+            allowed_views = ['email_config', 'process_audio', 'logout']
+            if view_func.__name__ not in allowed_views:
+                messages.warning(request, 'This page is not available in demo mode.')
+                return redirect('email_config')
                 
         return view_func(request, *args, **kwargs)
     return _wrapped_view
-
-@login_required
-@demo_user_required
-def demo_view(request):
-    """Demo view for visita user"""
-    status, created = SchedulerStatus.objects.get_or_create()
-    logs = SchedulerLog.objects.all().order_by('-timestamp')[:5]  # Get last 5 logs
-    
-    # Load configurations
-    config = load_config()
-    email_config = load_email_config()
-    
-    return render(request, 'scheduler_control/demo.html', {
-        'status': status,
-        'logs': logs,
-        'config': config,
-        'email_config': email_config
-    })
 
 # Global variable to store the scheduler process
 scheduler_process = None
@@ -478,6 +458,10 @@ def process_audio(request):
 
 class CustomLoginView(auth_views.LoginView):
     def get_success_url(self):
+        """Redirect users based on their type"""
         if self.request.user.username == 'visita':
-            return '/email-config/'
-        return super().get_success_url() 
+            messages.info(self.request, 'Welcome to demo mode!')
+            return reverse('email_config')
+        else:
+            messages.success(self.request, 'Welcome back!')
+            return reverse('dashboard') 
