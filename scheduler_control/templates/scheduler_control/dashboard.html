@@ -30,8 +30,7 @@
             </div>
         </div>
 
-        <!-- New card for Runs Per Day configuration -->
-        <div class="card">
+        <div class="card mb-4">
             <div class="card-header">
                 <h3>Schedule Configuration</h3>
             </div>
@@ -60,46 +59,38 @@
             </div>
         </div>
 
-        <!-- New card for Email Configuration -->
-        <div class="card mt-4">
+        {% if user.is_superuser %}
+        <div class="card">
             <div class="card-header">
-                <h3>Email Configuration</h3>
+                <h3>Management Commands</h3>
             </div>
             <div class="card-body">
-                <form id="email-config-form">
+                <form id="management-command-form">
                     {% csrf_token %}
                     <div class="form-group mb-3">
-                        <div class="custom-control custom-switch">
-                            <input type="checkbox" class="custom-control-input" id="send-demo-email" 
-                                   {% if email_config.send_demo_email %}checked{% endif %}>
-                            <label class="custom-control-label" for="send-demo-email">Send Demo Email</label>
-                        </div>
+                        <label for="command">Select Command</label>
+                        <select class="form-select" id="command" required>
+                            <option value="">Choose a command...</option>
+                            <option value="createsuperuser">Create Superuser</option>
+                            <option value="createuser">Create Regular User</option>
+                            <option value="changepassword">Change User Password</option>
+                        </select>
                     </div>
 
-                    <div id="email-fields" {% if not email_config.send_demo_email %}style="display: none;"{% endif %}>
-                        <div class="form-group mb-3">
-                            <label for="email-to">Recipient Email</label>
-                            <input type="email" class="form-control" id="email-to" name="to" 
-                                   value="{{ email_config.email.to }}" required>
-                        </div>
-                        
-                        <div class="form-group mb-3">
-                            <label for="email-subject">Subject</label>
-                            <input type="text" class="form-control" id="email-subject" name="subject" 
-                                   value="{{ email_config.email.subject }}" required>
-                        </div>
-                        
-                        <div class="form-group mb-3">
-                            <label for="email-message">Message</label>
-                            <textarea class="form-control" id="email-message" name="message" 
-                                      rows="3" required>{{ email_config.email.message }}</textarea>
-                        </div>
+                    <div id="command-args" class="mb-3" style="display: none;">
+                        <!-- Arguments will be dynamically added here based on selected command -->
                     </div>
 
-                    <button type="submit" class="btn btn-primary">Save Email Configuration</button>
+                    <button type="submit" class="btn btn-primary">Execute Command</button>
                 </form>
+
+                <div id="command-output" class="mt-3" style="display: none;">
+                    <h5>Command Output:</h5>
+                    <pre class="bg-light p-3 rounded"><code id="output-text"></code></pre>
+                </div>
             </div>
         </div>
+        {% endif %}
     </div>
     
     <div class="col-md-6">
@@ -237,56 +228,114 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 2000);
     });
 
-    // Email Configuration Form Handling
-    const emailConfigForm = document.getElementById('email-config-form');
-    const sendDemoEmailCheckbox = document.getElementById('send-demo-email');
-    const emailFields = document.getElementById('email-fields');
+    {% if user.is_superuser %}
+    // Management Commands Form Handling
+    const commandForm = document.getElementById('management-command-form');
+    const commandSelect = document.getElementById('command');
+    const commandArgs = document.getElementById('command-args');
+    const commandOutput = document.getElementById('command-output');
+    const outputText = document.getElementById('output-text');
 
-    // Toggle email fields visibility based on checkbox
-    sendDemoEmailCheckbox.addEventListener('change', function() {
-        emailFields.style.display = this.checked ? 'block' : 'none';
+    // Command argument configurations
+    const commandConfigs = {
+        createsuperuser: [
+            { name: 'username', type: 'text', label: 'Username', required: true },
+            { name: 'email', type: 'email', label: 'Email', required: true },
+            { name: 'password', type: 'password', label: 'Password', required: true }
+        ],
+        createuser: [
+            { name: 'username', type: 'text', label: 'Username', required: true },
+            { name: 'password', type: 'password', label: 'Password', required: true }
+        ],
+        changepassword: [
+            { name: 'username', type: 'text', label: 'Username', required: true },
+            { name: 'password', type: 'password', label: 'New Password', required: true }
+        ]
+    };
+
+    // Handle command selection
+    commandSelect.addEventListener('change', function() {
+        const command = this.value;
+        commandArgs.innerHTML = '';
+        commandOutput.style.display = 'none';
         
-        // If hiding fields, remove required attribute
-        const requiredFields = emailFields.querySelectorAll('[required]');
-        requiredFields.forEach(field => {
-            field.required = this.checked;
-        });
+        if (command && commandConfigs[command]) {
+            commandConfigs[command].forEach(arg => {
+                const div = document.createElement('div');
+                div.className = 'form-group mb-3';
+                
+                const label = document.createElement('label');
+                label.htmlFor = arg.name;
+                label.textContent = arg.label;
+                
+                const input = document.createElement('input');
+                input.type = arg.type;
+                input.className = 'form-control';
+                input.id = arg.name;
+                input.name = arg.name;
+                input.required = arg.required;
+                
+                div.appendChild(label);
+                div.appendChild(input);
+                commandArgs.appendChild(div);
+            });
+            
+            commandArgs.style.display = 'block';
+        } else {
+            commandArgs.style.display = 'none';
+        }
     });
 
-    // Handle email config form submission
-    emailConfigForm.addEventListener('submit', function(e) {
+    // Handle form submission
+    commandForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const config = {
-            send_demo_email: sendDemoEmailCheckbox.checked,
-            email: {
-                to: document.getElementById('email-to').value,
-                subject: document.getElementById('email-subject').value,
-                message: document.getElementById('email-message').value
-            }
-        };
-
-        fetch('{% url "update_email_config" %}', {
+        const command = commandSelect.value;
+        const args = [];
+        
+        if (commandConfigs[command]) {
+            commandConfigs[command].forEach(arg => {
+                const input = document.getElementById(arg.name);
+                args.push(input.value);
+            });
+        }
+        
+        fetch('{% url "execute_management_command" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             },
-            body: JSON.stringify(config)
+            body: JSON.stringify({
+                command: command,
+                args: args
+            })
         })
         .then(response => response.json())
         .then(data => {
+            commandOutput.style.display = 'block';
             if (data.success) {
-                alert('Email configuration updated successfully!');
+                outputText.textContent = data.output || 'Command executed successfully!';
+                // Clear form on success
+                commandForm.reset();
+                commandArgs.style.display = 'none';
+                // Optionally reload page after user creation
+                if (command === 'createuser' || command === 'createsuperuser') {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
             } else {
-                alert('Error: ' + data.error);
+                outputText.textContent = `Error: ${data.error}\n${data.output || ''}`;
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while updating the email configuration.');
+            commandOutput.style.display = 'block';
+            outputText.textContent = 'An error occurred while executing the command.';
         });
     });
+    {% endif %}
 });
 </script>
 {% endblock %} 

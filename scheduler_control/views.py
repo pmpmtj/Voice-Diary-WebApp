@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -14,6 +14,46 @@ import json
 from .models import SchedulerStatus, SchedulerLog
 from django.conf import settings
 from django.views.decorators.csrf import csrf_protect
+from django.core.management import call_command
+from io import StringIO
+from functools import wraps
+
+def demo_user_required(view_func):
+    """Decorator to handle demo user access"""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+            
+        if request.user.username == 'visita':
+            # If demo user tries to access non-demo pages, redirect to demo
+            if view_func.__name__ != 'demo_view':
+                return redirect('demo')
+        else:
+            # If regular user tries to access demo page, redirect to dashboard
+            if view_func.__name__ == 'demo_view':
+                return redirect('dashboard')
+                
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+@login_required
+@demo_user_required
+def demo_view(request):
+    """Demo view for visita user"""
+    status, created = SchedulerStatus.objects.get_or_create()
+    logs = SchedulerLog.objects.all().order_by('-timestamp')[:5]  # Get last 5 logs
+    
+    # Load configurations
+    config = load_config()
+    email_config = load_email_config()
+    
+    return render(request, 'scheduler_control/demo.html', {
+        'status': status,
+        'logs': logs,
+        'config': config,
+        'email_config': email_config
+    })
 
 # Global variable to store the scheduler process
 scheduler_process = None
@@ -57,6 +97,7 @@ def find_scheduler_process():
     return None
 
 @login_required
+@demo_user_required
 def dashboard(request):
     """Main dashboard view"""
     status, created = SchedulerStatus.objects.get_or_create()
@@ -310,6 +351,63 @@ def update_email_config(request):
             'success': True
         })
         
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+def email_config(request):
+    """Email configuration page"""
+    email_config = load_email_config()
+    return render(request, 'scheduler_control/email_config.html', {
+        'email_config': email_config
+    })
+
+def is_superuser(user):
+    return user.is_superuser
+
+@login_required
+@user_passes_test(is_superuser)
+@csrf_protect
+@require_POST
+def execute_management_command(request):
+    """Execute Django management commands"""
+    try:
+        data = json.loads(request.body)
+        command = data.get('command')
+        args = data.get('args', [])
+        
+        if not command:
+            return JsonResponse({
+                'success': False,
+                'error': 'Command is required'
+            })
+            
+        # Only allow specific commands
+        allowed_commands = ['createsuperuser', 'createuser', 'changepassword']
+        if command not in allowed_commands:
+            return JsonResponse({
+                'success': False,
+                'error': f'Command not allowed. Allowed commands: {", ".join(allowed_commands)}'
+            })
+            
+        # Capture command output
+        output = StringIO()
+        try:
+            call_command(command, *args, stdout=output)
+            return JsonResponse({
+                'success': True,
+                'output': output.getvalue()
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e),
+                'output': output.getvalue()
+            })
+            
     except Exception as e:
         return JsonResponse({
             'success': False,

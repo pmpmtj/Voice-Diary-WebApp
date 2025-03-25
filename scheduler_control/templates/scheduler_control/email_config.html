@@ -1,0 +1,104 @@
+{% extends 'scheduler_control/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3>Email Configuration</h3>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+            </div>
+            <div class="card-body">
+                <form id="email-config-form">
+                    {% csrf_token %}
+                    <div class="form-group mb-4">
+                        <div class="custom-control custom-switch">
+                            <input type="checkbox" class="custom-control-input" id="send-demo-email" 
+                                   {% if email_config.send_demo_email %}checked{% endif %}>
+                            <label class="custom-control-label" for="send-demo-email">Send Demo Email</label>
+                        </div>
+                    </div>
+
+                    <div id="email-fields" {% if not email_config.send_demo_email %}style="display: none;"{% endif %}>
+                        <div class="form-group mb-3">
+                            <label for="email-to">Recipient Email</label>
+                            <input type="email" class="form-control" id="email-to" name="to" 
+                                   value="{{ email_config.email.to }}" required>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="email-subject">Subject</label>
+                            <input type="text" class="form-control" id="email-subject" name="subject" 
+                                   value="{{ email_config.email.subject }}" required>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="email-message">Message</label>
+                            <textarea class="form-control" id="email-message" name="message" 
+                                      rows="3" required>{{ email_config.email.message }}</textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save Email Configuration</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const emailConfigForm = document.getElementById('email-config-form');
+    const sendDemoEmailCheckbox = document.getElementById('send-demo-email');
+    const emailFields = document.getElementById('email-fields');
+
+    // Toggle email fields visibility based on checkbox
+    sendDemoEmailCheckbox.addEventListener('change', function() {
+        emailFields.style.display = this.checked ? 'block' : 'none';
+        
+        // If hiding fields, remove required attribute
+        const requiredFields = emailFields.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            field.required = this.checked;
+        });
+    });
+
+    // Handle email config form submission
+    emailConfigForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const config = {
+            send_demo_email: sendDemoEmailCheckbox.checked,
+            email: {
+                to: document.getElementById('email-to').value,
+                subject: document.getElementById('email-subject').value,
+                message: document.getElementById('email-message').value
+            }
+        };
+
+        fetch('{% url "update_email_config" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(config)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Email configuration updated successfully!');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating the email configuration.');
+        });
+    });
+});
+</script>
+{% endblock %} 
