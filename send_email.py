@@ -144,7 +144,7 @@ def send_message(service, user_id, message):
         return None
 
 def send_demo_email(transcription_text):
-    """Send a demo email with transcription as attachment."""
+    """Send a demo email with transcription in the body."""
     try:
         # Load email configuration
         with open('email_config.json', 'r') as f:
@@ -156,11 +156,6 @@ def send_demo_email(transcription_text):
         email_config = config.get('email', {})
         if not all(key in email_config for key in ['to', 'subject', 'message']):
             return False, "Missing required email parameters in config"
-
-        # Create temporary file with transcription
-        temp_file = 'demo_result.txt'
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            f.write(transcription_text)
 
         # Authenticate with Gmail
         creds = authenticate_gmail()
@@ -175,22 +170,15 @@ def send_demo_email(transcription_text):
             user_profile = service.users().getProfile(userId='me').execute()
             sender = user_profile['emailAddress']
             
-            # Create and send the email with attachment
-            message = create_message_with_attachment(
+            # Create message with transcription in body
+            message = create_message(
                 sender,
                 email_config['to'],
                 email_config['subject'],
-                email_config['message'],
-                temp_file
+                f"{email_config['message']}\n\nTranscription:\n{transcription_text}"
             )
             
             result = send_message(service, 'me', message)
-            
-            # Clean up temporary file
-            try:
-                os.remove(temp_file)
-            except Exception as e:
-                print(f"Warning: Could not remove temporary file: {e}")
             
             if result:
                 return True, "Demo email sent successfully"
